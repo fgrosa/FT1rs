@@ -1441,7 +1441,6 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
   TClonesArray &saveParOutwardA  = ts.fTrackOutA;
   TClonesArray &saveParComb      = ts.fTrackCmb;
 
-  // Calculate track parameters using Billoirs method of matrices
   Double_t pt,lambda;
   //
   CylLayerK *last = (CylLayerK*) fLayers.At((fLayers.GetEntries()-1));
@@ -1488,35 +1487,46 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
     printf("Track of pt=%.3f cannot be tracked to min. r=%f\n",pt,minRad);
     return kFALSE;
   }
-  Int_t lastActiveLayer = -1;
+  Int_t lastActiveLayer = -1, lastReachedLayer = -1;
   for (Int_t j=fLayers.GetEntries(); j--;) { 
     CylLayerK *l = (CylLayerK*) fLayers.At(j);
-    //	printf("at lr %d r: %f vs %f, pt:%f\n",j,l->radius, 2*rmx-2.*kTrackingMargin, pt);
     if (/*!(l->isDead) && */(l->radius <= 2*(rmx-5))) {lastActiveLayer = j; last = l; break;}
   }
   if (lastActiveLayer<0) {
     printf("No active layer with radius < %f is found, pt = %f\n",rmx, pt);
     return kFALSE;
   }
-  //      printf("PT=%f 2Rpt=%f Rlr=%f\n",pt,2*rmx,last->radius);
   //
-  if (!PropagateToR(&probTr,last->radius + kTrackingMargin,bGauss,1)) return kFALSE;
-  //if (!probTr.PropagateTo(last->radius,bGauss)) continue;
-  // reset cov.matrix
-  // 
-  // rotate to external layer frame
-  /*
-    double posL[3];
-    probTr.GetXYZ(posL);  // lab position
-    double phiL = TMath::ATan2(posL[1],posL[0]);
-    if (!probTr.Rotate(phiL)) {
-    printf("Failed to rotate to the frame (phi:%+.3f)of Extertnal layer at %.2f\n",
-    phiL,last->radius);
-    probTr.Print();
-    exit(1);
+  for (int il=1;il<=lastActiveLayer;il++) {
+    CylLayerK *lr = (CylLayerK*) fLayers.At(il);
+    AliExternalTrackParam probTrLast(probTr);
+    bool ok = PropagateToR(&probTrLast,lr->radius,bGauss,1);
+    if (ok) ok = probTrLast.CorrectForMeanMaterial(lr->radL, 0, mass , kTRUE);
+    if (ok && lr->xrho>0) {
+      for (int ise=10;ise--;) {
+	ok = probTrLast.CorrectForMeanMaterial(0, -lr->xrho/10, mass , kTRUE);
+	if (!ok) break;
+      }
     }
-  */
-  if (!probTr.Rotate(probTr.Phi())) return kFALSE; // define large errors in track proper frame (snp=0)
+    if (ok && lr->radius>1e-3 && !lr->isDead) {
+      ok = probTrLast.Rotate(probTrLast.PhiPos()) && TMath::Abs( probTrLast.GetSnp() )<fMaxSnp;
+    }
+    // was there a problem on this layer?
+    if (!ok) { // may fail to reach target layer due to the eloss
+      double rad2 = probTr.GetX()*probTr.GetX() + probTr.GetY()*probTr.GetY();
+      if (rad2 - minRad*minRad < kTrackingMargin*kTrackingMargin) { // check previously reached layer
+	return kFALSE; // did not reach min requested layer
+      }
+      else {
+	break;
+      }
+    }
+    probTr = probTrLast;
+    lastReachedLayer = il;
+  }
+  // do tiny overshoot for the safety of the back-propagation
+  if (!PropagateToR(&probTr,probTr.GetX() + kTrackingMargin,bGauss,1)) return kFALSE;
+  if (!probTr.Rotate(probTr.PhiPos())) return kFALSE;
   //
   const double kLargeErr2Coord = 5*5;
   const double kLargeErr2Dir = 0.7*0.7;
@@ -1530,7 +1540,7 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
   // Back-propagate the covariance matrix along the track.   
   CylLayerK *layer = 0;
   //
-  for (Int_t j=lastActiveLayer+1; j--;) {  // Layer loop
+  for (Int_t j=lastReachedLayer+1; j--;) {  // Layer loop
     
     layer = (CylLayerK*)fLayers.At(j);
     
@@ -1540,8 +1550,6 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
     Bool_t isVertex = name.Contains("vertex");
     //
     if (!PropagateToR(&probTr,layer->radius,bGauss,-1)) return kFALSE; //exit(1);
-    //	if (!probTr.PropagateTo(last->radius,bGauss)) exit(1);	//
-    // rotate to frame with X axis normal to the surface
     if (!isVertex) {
       double pos[3];
       probTr.GetXYZ(pos);  // lab position
@@ -1549,8 +1557,7 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
       if ( TMath::Abs(TMath::Abs(phi)-TMath::Pi()/2)<1e-3) phi = 0;//TMath::Sign(TMath::Pi()/2 - 1e-3,phi);
       if (!probTr.Rotate(phi)) {
 	printf("Failed to rotate to the frame (phi:%+.3f)of layer at %.2f at XYZ: %+.3f %+.3f %+.3f (pt=%+.3f)\n",
-	       phi,layer->radius,pos[0],pos[1],pos[2],pt);
-	
+	       phi,layer->radius,pos[0],pos[1],pos[2],pt);	
 	probTr.Print();
 	exit(1);
       }
@@ -1581,6 +1588,15 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
       printf("Failed to apply material correction, X/X0=%.4f\n",layer->radL);
       probTr.Print();
       exit(1);
+    }
+    if (layer->xrho>0) { // correct in small steps
+      for (int ise=10;ise--;) {
+	if (!probTr.CorrectForMeanMaterial(0, layer->xrho/10, mass , kTRUE)) {
+	  printf("Failed to apply material correction, xrho=%.4f\n",layer->xrho);
+	  probTr.Print();
+	  exit(1);
+	}
+      }
     }
   }
   //  
@@ -1669,6 +1685,15 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
       printf("Failed to apply material correction, X/X0=%.4f\n",layer->radL);
       probTr.Print();
       exit(1);
+    }
+    if (layer->xrho>0) { // correct in small steps
+      for (int ise=10;ise--;) {
+	if (!probTr.CorrectForMeanMaterial(0, -layer->xrho/10, mass , kTRUE)) {
+	  printf("Failed to apply material correction, xrho=%.4f\n",-layer->xrho);
+	  probTr.Print();
+	  exit(1);
+	}
+      }
     }
     // save outward parameters at this layer: after the update
     new( saveParOutwardA[j] ) AliExternalTrackParam(probTr);
