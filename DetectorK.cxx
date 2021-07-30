@@ -1635,7 +1635,7 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
     }
   }
   //probTr.Rotate(0);
-  for (Int_t j=0; j<=lastActiveLayer; j++) {  // Layer loop
+  for (Int_t j=0; j<=lastReachedLayer; j++) {  // Layer loop
     //
     layer = (CylLayerK*)fLayers.At(j);
     TString name(layer->GetName());
