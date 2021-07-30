@@ -1560,7 +1560,7 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
 	printf("Failed to rotate to the frame (phi:%+.3f)of layer at %.2f at XYZ: %+.3f %+.3f %+.3f (pt=%+.3f)\n",
 	       phi,layer->radius,pos[0],pos[1],pos[2],pt);	
 	probTr.Print();
-	exit(1);
+	return kFALSE; // exit(1);
       }
     }
     // save inward parameters at this layer: before the update!
@@ -1580,7 +1580,7 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
 	printf("Failed to update the track by measurement {%.3f,%3f} err {%.3e %.3e %.3e}\n",
 	       meas[0],meas[1], measErr2[0],measErr2[1],measErr2[2]);
 	probTr.Print();
-	exit(1);
+	return kFALSE; // exit(1);
       }
     }
     // correct for materials of this layer
@@ -1588,14 +1588,14 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
     if (layer->radL>0 && !probTr.CorrectForMeanMaterial(layer->radL, 0, mass , kTRUE)) {
       printf("Failed to apply material correction, X/X0=%.4f\n",layer->radL);
       probTr.Print();
-      exit(1);
+      return kFALSE; // exit(1);
     }
     if (layer->xrho>0) { // correct in small steps
       for (int ise=xrhosteps;ise--;) {
 	if (!probTr.CorrectForMeanMaterial(0, layer->xrho/xrhosteps, mass , kTRUE)) {
 	  printf("Failed to apply material correction, xrho=%.4f\n",layer->xrho);
 	  probTr.Print();
-	  exit(1);
+	  return kFALSE; // exit(1);
 	}
       }
     }
@@ -1653,7 +1653,7 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
 	printf("Failed to rotate to the frame (phi:%+.3f)of layer at %.2f at XYZ: %+.3f %+.3f %+.3f (pt=%+.3f)\n",
 	       phi,layer->radius,pos[0],pos[1],pos[2],pt);	      
 	probTr.Print();
-	exit(1);
+	return kFALSE; // exit(1);
       }
     }
     //
@@ -1678,21 +1678,21 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
 	printf("Failed to update the track by measurement {%.3f,%3f} err {%.3e %.3e %.3e}\n",
 	       meas[0],meas[1], measErr2[0],measErr2[1],measErr2[2]);
 	probTr.Print();
-	exit(1);
+	return kFALSE; // exit(1);
       }
     }
     // note: if apart from MS we want also e.loss correction, the density*length should be provided as 2nd param
     if (layer->radL>0 && !probTr.CorrectForMeanMaterial(layer->radL, 0, mass , kTRUE)) {
       printf("Failed to apply material correction, X/X0=%.4f\n",layer->radL);
       probTr.Print();
-      exit(1);
+      return kFALSE; // exit(1);
     }
     if (layer->xrho>0) { // correct in small steps
       for (int ise=xrhosteps;ise--;) {
 	if (!probTr.CorrectForMeanMaterial(0, -layer->xrho/xrhosteps, mass , kTRUE)) {
 	  printf("Failed to apply material correction, xrho=%.4f\n",-layer->xrho);
 	  probTr.Print();
-	  exit(1);
+	  return kFALSE; // exit(1);
 	}
       }
     }
