@@ -27,6 +27,7 @@ Bool_t DetectorK::verboseR=0;
 
 #define RIDICULOUS 999999 // A ridiculously large resolution (cm) to flag a dead detector
 
+#define xrhosteps     10          // steps for dEdx correction
 #define Luminosity    1.e27       // Luminosity of the beam (LHC HI == 1.e27, RHIC II == 8.e27 )
 #define SigmaD        6.0         // Size of the interaction diamond (cm) (LHC = 6.0 cm)
 #define dNdEtaMinB    1//950//660//950           // Multiplicity per unit Eta  (AuAu MinBias = 170, Central = 700)
@@ -915,8 +916,8 @@ void DetectorK::SolveViaBilloir(Double_t selPt, double ptmin) {
 
       if (lr->xrho>0) { // correct in small steps
 	bool elossOK = kTRUE;
-	for (int ise=10;ise--;) {
-	  if (!probTrLast.CorrectForMeanMaterial(0, -lr->xrho/10, fParticleMass , kTRUE)) {elossOK = kFALSE; break;}
+	for (int ise=xrhosteps;ise--;) {
+	  if (!probTrLast.CorrectForMeanMaterial(0, -lr->xrho/xrhosteps, fParticleMass , kTRUE)) {elossOK = kFALSE; break;}
 	}
 	if (!elossOK) break;
       }
@@ -1033,8 +1034,8 @@ void DetectorK::SolveViaBilloir(Double_t selPt, double ptmin) {
 	exit(1);
       }
       if (layer->xrho>0) { // correct in small steps
-	for (int ise=10;ise--;) {
-	  if (!probTr.CorrectForMeanMaterial(0, layer->xrho/10, fParticleMass , kTRUE)) {
+	for (int ise=xrhosteps;ise--;) {
+	  if (!probTr.CorrectForMeanMaterial(0, layer->xrho/xrhosteps, fParticleMass , kTRUE)) {
 	    printf("Failed to apply material correction, xrho=%.4f\n",layer->xrho);
 	    probTr.Print();
 	    exit(1);
@@ -1246,8 +1247,8 @@ void DetectorK::SolveViaBilloir(Double_t selPt, double ptmin) {
 	  exit(1);
 	}
 	if (layer->xrho>0) { // correct in small steps
-	  for (int ise=10;ise--;) {
-	    if (!probTr.CorrectForMeanMaterial(0, -layer->xrho/10, fParticleMass , kTRUE)) {
+	  for (int ise=xrhosteps;ise--;) {
+	    if (!probTr.CorrectForMeanMaterial(0, -layer->xrho/xrhosteps, fParticleMass , kTRUE)) {
 	      printf("Failed to apply material correction, xrho=%.4f\n",-layer->xrho);
 	      probTr.Print();
 	      exit(1);
@@ -1503,8 +1504,8 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
     bool ok = PropagateToR(&probTrLast,lr->radius,bGauss,1);
     if (ok) ok = probTrLast.CorrectForMeanMaterial(lr->radL, 0, mass , kTRUE);
     if (ok && lr->xrho>0) {
-      for (int ise=10;ise--;) {
-	ok = probTrLast.CorrectForMeanMaterial(0, -lr->xrho/10, mass , kTRUE);
+      for (int ise=xrhosteps;ise--;) {
+	ok = probTrLast.CorrectForMeanMaterial(0, -lr->xrho/xrhosteps, mass , kTRUE);
 	if (!ok) break;
       }
     }
@@ -1590,8 +1591,8 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
       exit(1);
     }
     if (layer->xrho>0) { // correct in small steps
-      for (int ise=10;ise--;) {
-	if (!probTr.CorrectForMeanMaterial(0, layer->xrho/10, mass , kTRUE)) {
+      for (int ise=xrhosteps;ise--;) {
+	if (!probTr.CorrectForMeanMaterial(0, layer->xrho/xrhosteps, mass , kTRUE)) {
 	  printf("Failed to apply material correction, xrho=%.4f\n",layer->xrho);
 	  probTr.Print();
 	  exit(1);
@@ -1687,8 +1688,8 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
       exit(1);
     }
     if (layer->xrho>0) { // correct in small steps
-      for (int ise=10;ise--;) {
-	if (!probTr.CorrectForMeanMaterial(0, -layer->xrho/10, mass , kTRUE)) {
+      for (int ise=xrhosteps;ise--;) {
+	if (!probTr.CorrectForMeanMaterial(0, -layer->xrho/xrhosteps, mass , kTRUE)) {
 	  printf("Failed to apply material correction, xrho=%.4f\n",-layer->xrho);
 	  probTr.Print();
 	  exit(1);
