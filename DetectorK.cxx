@@ -1426,7 +1426,12 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
   double etaTr = ts.fEta;
   double mass = ts.fMass;
   double charge = ts.fCharge;
-  
+
+  // reset good hit probability
+  for (int i = 0; i < kMaxNumberOfDetectors; ++i)
+    fGoodHitProb[i] = -1.;
+  fGoodHitProb[0] = 1.; // we use layer zero to accumulate
+    
   if (ptTr<0) { 
     printf("Input track is not initialized");
     return kFALSE;
@@ -1699,6 +1704,14 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
     // save outward parameters at this layer: after the update
     new( saveParOutwardA[j] ) AliExternalTrackParam(probTr);
     //
+    // good hit probability calculation
+    if (!isVertex && !layer->isDead) {
+      AliExternalTrackParam* trCmb = (AliExternalTrackParam*)ts.fTrackCmb[j];
+      double sigYCmb = TMath::Sqrt(trCmb->GetSigmaY2()+layer->phiRes*layer->phiRes);
+      double sigZCmb = TMath::Sqrt(trCmb->GetSigmaZ2()+layer->zRes*layer->zRes);
+      fGoodHitProb[j] = ProbGoodChiSqHit(layer->radius * 100., sigYCmb * 100., sigZCmb * 100.);
+      fGoodHitProb[0]  *= fGoodHitProb[j];
+    }
   }
   //
   probTr.SetUseLogTermMS(kFALSE); // Reset of MS term usage to avoid problems since its static
