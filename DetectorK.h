@@ -230,6 +230,8 @@ class DetectorK : public TNamed {
 
   Bool_t IsITSLayer(const TString& lname);
 
+  Double_t GetGoodHitProb(Int_t i) { return fGoodHitProb[i]; };
+  
   static Bool_t verboseR;
  protected:
  
@@ -266,7 +268,8 @@ class DetectorK : public TNamed {
   Double_t fDetPointZRes[kMaxNumberOfDetectors][kNptBins];   // array of z resolution per layer
   Double_t fEfficiency[kNptBins];                            // efficiency 
   Double_t fFake[kNptBins];                                  // fake prob
-
+  Double_t fGoodHitProb[kMaxNumberOfDetectors];              // array of good hit probability per layer
+  
   Int_t kDetLayer;                              // layer for which a few more details are extracted
   Double_t fResolutionRPhiLay[kNptBins];                        // array of rphi resolution
   Double_t fResolutionZLay[kNptBins];                           // array of z resolution

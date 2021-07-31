@@ -27,6 +27,7 @@ Bool_t DetectorK::verboseR=0;
 
 #define RIDICULOUS 999999 // A ridiculously large resolution (cm) to flag a dead detector
 
+#define xrhosteps     10          // steps for dEdx correction
 #define Luminosity    1.e27       // Luminosity of the beam (LHC HI == 1.e27, RHIC II == 8.e27 )
 #define SigmaD        6.0         // Size of the interaction diamond (cm) (LHC = 6.0 cm)
 #define dNdEtaMinB    1//950//660//950           // Multiplicity per unit Eta  (AuAu MinBias = 170, Central = 700)
@@ -915,8 +916,8 @@ void DetectorK::SolveViaBilloir(Double_t selPt, double ptmin) {
 
       if (lr->xrho>0) { // correct in small steps
 	bool elossOK = kTRUE;
-	for (int ise=10;ise--;) {
-	  if (!probTrLast.CorrectForMeanMaterial(0, -lr->xrho/10, fParticleMass , kTRUE)) {elossOK = kFALSE; break;}
+	for (int ise=xrhosteps;ise--;) {
+	  if (!probTrLast.CorrectForMeanMaterial(0, -lr->xrho/xrhosteps, fParticleMass , kTRUE)) {elossOK = kFALSE; break;}
 	}
 	if (!elossOK) break;
       }
@@ -1033,8 +1034,8 @@ void DetectorK::SolveViaBilloir(Double_t selPt, double ptmin) {
 	exit(1);
       }
       if (layer->xrho>0) { // correct in small steps
-	for (int ise=10;ise--;) {
-	  if (!probTr.CorrectForMeanMaterial(0, layer->xrho/10, fParticleMass , kTRUE)) {
+	for (int ise=xrhosteps;ise--;) {
+	  if (!probTr.CorrectForMeanMaterial(0, layer->xrho/xrhosteps, fParticleMass , kTRUE)) {
 	    printf("Failed to apply material correction, xrho=%.4f\n",layer->xrho);
 	    probTr.Print();
 	    exit(1);
@@ -1246,8 +1247,8 @@ void DetectorK::SolveViaBilloir(Double_t selPt, double ptmin) {
 	  exit(1);
 	}
 	if (layer->xrho>0) { // correct in small steps
-	  for (int ise=10;ise--;) {
-	    if (!probTr.CorrectForMeanMaterial(0, -layer->xrho/10, fParticleMass , kTRUE)) {
+	  for (int ise=xrhosteps;ise--;) {
+	    if (!probTr.CorrectForMeanMaterial(0, -layer->xrho/xrhosteps, fParticleMass , kTRUE)) {
 	      printf("Failed to apply material correction, xrho=%.4f\n",-layer->xrho);
 	      probTr.Print();
 	      exit(1);
@@ -1425,7 +1426,12 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
   double etaTr = ts.fEta;
   double mass = ts.fMass;
   double charge = ts.fCharge;
-  
+
+  // reset good hit probability
+  for (int i = 0; i < kMaxNumberOfDetectors; ++i)
+    fGoodHitProb[i] = -1.;
+  fGoodHitProb[0] = 1.; // we use layer zero to accumulate
+    
   if (ptTr<0) { 
     printf("Input track is not initialized");
     return kFALSE;
@@ -1503,8 +1509,8 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
     bool ok = PropagateToR(&probTrLast,lr->radius,bGauss,1);
     if (ok) ok = probTrLast.CorrectForMeanMaterial(lr->radL, 0, mass , kTRUE);
     if (ok && lr->xrho>0) {
-      for (int ise=10;ise--;) {
-	ok = probTrLast.CorrectForMeanMaterial(0, -lr->xrho/10, mass , kTRUE);
+      for (int ise=xrhosteps;ise--;) {
+	ok = probTrLast.CorrectForMeanMaterial(0, -lr->xrho/xrhosteps, mass , kTRUE);
 	if (!ok) break;
       }
     }
@@ -1559,7 +1565,7 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
 	printf("Failed to rotate to the frame (phi:%+.3f)of layer at %.2f at XYZ: %+.3f %+.3f %+.3f (pt=%+.3f)\n",
 	       phi,layer->radius,pos[0],pos[1],pos[2],pt);	
 	probTr.Print();
-	exit(1);
+	return kFALSE; // exit(1);
       }
     }
     // save inward parameters at this layer: before the update!
@@ -1579,7 +1585,7 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
 	printf("Failed to update the track by measurement {%.3f,%3f} err {%.3e %.3e %.3e}\n",
 	       meas[0],meas[1], measErr2[0],measErr2[1],measErr2[2]);
 	probTr.Print();
-	exit(1);
+	return kFALSE; // exit(1);
       }
     }
     // correct for materials of this layer
@@ -1587,14 +1593,14 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
     if (layer->radL>0 && !probTr.CorrectForMeanMaterial(layer->radL, 0, mass , kTRUE)) {
       printf("Failed to apply material correction, X/X0=%.4f\n",layer->radL);
       probTr.Print();
-      exit(1);
+      return kFALSE; // exit(1);
     }
     if (layer->xrho>0) { // correct in small steps
-      for (int ise=10;ise--;) {
-	if (!probTr.CorrectForMeanMaterial(0, layer->xrho/10, mass , kTRUE)) {
+      for (int ise=xrhosteps;ise--;) {
+	if (!probTr.CorrectForMeanMaterial(0, layer->xrho/xrhosteps, mass , kTRUE)) {
 	  printf("Failed to apply material correction, xrho=%.4f\n",layer->xrho);
 	  probTr.Print();
-	  exit(1);
+	  return kFALSE; // exit(1);
 	}
       }
     }
@@ -1652,7 +1658,7 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
 	printf("Failed to rotate to the frame (phi:%+.3f)of layer at %.2f at XYZ: %+.3f %+.3f %+.3f (pt=%+.3f)\n",
 	       phi,layer->radius,pos[0],pos[1],pos[2],pt);	      
 	probTr.Print();
-	exit(1);
+	return kFALSE; // exit(1);
       }
     }
     //
@@ -1677,27 +1683,35 @@ Bool_t DetectorK::SolveTrack(TrackSol& ts) {
 	printf("Failed to update the track by measurement {%.3f,%3f} err {%.3e %.3e %.3e}\n",
 	       meas[0],meas[1], measErr2[0],measErr2[1],measErr2[2]);
 	probTr.Print();
-	exit(1);
+	return kFALSE; // exit(1);
       }
     }
     // note: if apart from MS we want also e.loss correction, the density*length should be provided as 2nd param
     if (layer->radL>0 && !probTr.CorrectForMeanMaterial(layer->radL, 0, mass , kTRUE)) {
       printf("Failed to apply material correction, X/X0=%.4f\n",layer->radL);
       probTr.Print();
-      exit(1);
+      return kFALSE; // exit(1);
     }
     if (layer->xrho>0) { // correct in small steps
-      for (int ise=10;ise--;) {
-	if (!probTr.CorrectForMeanMaterial(0, -layer->xrho/10, mass , kTRUE)) {
+      for (int ise=xrhosteps;ise--;) {
+	if (!probTr.CorrectForMeanMaterial(0, -layer->xrho/xrhosteps, mass , kTRUE)) {
 	  printf("Failed to apply material correction, xrho=%.4f\n",-layer->xrho);
 	  probTr.Print();
-	  exit(1);
+	  return kFALSE; // exit(1);
 	}
       }
     }
     // save outward parameters at this layer: after the update
     new( saveParOutwardA[j] ) AliExternalTrackParam(probTr);
     //
+    // good hit probability calculation
+    if (!isVertex && !layer->isDead) {
+      AliExternalTrackParam* trCmb = (AliExternalTrackParam*)ts.fTrackCmb[j];
+      double sigYCmb = TMath::Sqrt(trCmb->GetSigmaY2()+layer->phiRes*layer->phiRes);
+      double sigZCmb = TMath::Sqrt(trCmb->GetSigmaZ2()+layer->zRes*layer->zRes);
+      fGoodHitProb[j] = ProbGoodChiSqHit(layer->radius * 100., sigYCmb * 100., sigZCmb * 100.);
+      fGoodHitProb[0]  *= fGoodHitProb[j];
+    }
   }
   //
   probTr.SetUseLogTermMS(kFALSE); // Reset of MS term usage to avoid problems since its static
